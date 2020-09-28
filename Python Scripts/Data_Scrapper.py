@@ -1,15 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 22 00:19:53 2020
 
-@author: pvini
-"""
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import pandas as pd
 import sqlite3
 from sqlite3 import Error
 import time
+
+DB_PATH = '<path for sqlite3 dbfile>'
+CHROME_DRIVER_PATH = '<path for Chrome Driver>'
 
 def create_connection(db_file, delete_db=False):
     import os
@@ -44,7 +42,7 @@ def insert_movie_genre_master(conn, values):
               VALUES(?,?) '''
     cur = conn.cursor()
     cur.execute(sql, values)
-    return cur.lastrowid    
+    return cur.lastrowid
 
 def insert_movie_release_date(conn, values):
     sql = ''' INSERT INTO MOVIE_RELEASE_DATE(Movie_Name,Release_Date,PK)
@@ -85,10 +83,10 @@ def convert_date_format(day,month,year):
         mon = '11';
     else:
         mon = '12';
-        
+
     if int(day) < 10:
         day = '0' + day
-        
+
     return year + '-' + mon + '-' + day
 
 if __name__ == '__main__':
@@ -103,13 +101,13 @@ if __name__ == '__main__':
     Release_Date_List = []
     Movie_Release_Data = []
 
-    driver = webdriver.Chrome("C:/Users/pvini/Downloads/ChromeDriver/chromedriver.exe.")
+    driver = webdriver.Chrome(CHROME_DRIVER_PATH)
     driver.get("https://www.imdb.com/search/title/?title_type=feature&release_date=2019-01-01,2020-01-01")
     content = driver.page_source
     soup = BeautifulSoup(content,features="lxml")
-    
+
     no_of_pages = 5
-    
+
     for i in range(0,no_of_pages):
         for div in soup.findAll('div',href=False,attrs={'class':'lister-item-content'}):
             link_soup = ''
@@ -118,11 +116,11 @@ if __name__ == '__main__':
             movie = h3.find('a',href=True)
             #print(movie['href'])
             Movie_Name.append(h3.find('a',href=True).text)
-            
+
             #link = driver.find_element_by_link_text(movie)
             print('https://www.imdb.com'+movie['href'])
             driver.get('https://www.imdb.com'+movie['href'])
-            
+
             link_content = driver.page_source
             link_soup = BeautifulSoup(link_content,"lxml")
             link_content_data = (link_soup.find_all('div',{'class' : 'subtext'}))
@@ -131,25 +129,25 @@ if __name__ == '__main__':
                 if data.find('a',{'title' : 'See more release dates'}) is not None:
                     Release_Date_Text = data.find('a',{'title' : 'See more release dates'}).text.split('(')[0]
                     Release_Date_List.append(Release_Date_Text)
-            
+
             print(Release_Date_Text)
-            print(movie.text)            
+            print(movie.text)
             #Release_Date_List.append(div.find('a',href=True,attrs={'title':'See more release dates'}).text)
             driver.back()
-    
+
         for p in soup.findAll('span',href=False,attrs={'class':'runtime'}):
             Movie_RunTime.append(p.text)
-    
+
         for p in soup.findAll('span',href=False,attrs={'class':'genre'}):
             Movie_Genre.append(p.text.strip().split(','))
-    
+
         for div in soup.findAll('div',href=False,attrs={'class':'inline-block ratings-imdb-rating'}):
             Movie_Rating.append(float(div.find('strong').text))
-    
+
         for p in soup.findAll('p',attrs={'class':'sort-num_votes-visible'}):
             #No_Of_Votes = p.find('span',attrs={'name':'nv'}).text
             Votes_Count.append(int(p.find('span',attrs={'name':'nv'}).text.replace(',','')))
-            
+
         if i != no_of_pages:
             link = driver.find_element_by_link_text('Next »')
             link.click()
@@ -169,26 +167,26 @@ if __name__ == '__main__':
             if Movie_Genre[i][j].replace(' ','') not in Movie_genre_List:
                 Movie_genre_List.append(Movie_Genre[i][j].replace(' ',''))
 
-    conn = create_connection('D:/UB/Spring_2020/EAS503/Project/My_Test/Movie_Analyzer.db')
+    conn = create_connection(DB_PATH)
     count = 0
     with conn:
         for values in Movie_Data:
             insert_movie_master(conn,values)
-        
+
         for values in Movie_Genre_Mapper:
             count += 1
             values = list(values)
             values.append(count)
             values = tuple(values)
             insert_movie_genre_mapper(conn,values)
-        
+
         count = 0
         for values in Movie_genre_List:
             count += 1
             values = (values,count)
             #print(values)
             insert_movie_genre_master(conn,values)
-            
+
         count = 0
         for values in Movie_Release_Data:
             count += 1
